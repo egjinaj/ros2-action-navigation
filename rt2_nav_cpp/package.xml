@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>rt2_nav_cpp</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>ROS 2 C++ action-based navigation controller using composable nodes and tf2 pose tracking.</description>
   <maintainer email="endrigjinaj49@gmail.com">Endri Gjinaj</maintainer>
   <license>Apache-2.0</license>
