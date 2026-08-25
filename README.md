@@ -1,186 +1,179 @@
-# RT2 Assignment 1 – Navigation with Action Server
+# ROS 2 Action Navigation
 
-## Overview
-This project implements a simple robot navigation system in ROS 2 using **actions, components (plugins), and tf2** in C++.
-The goal is to move a robot in a 2D environment to a target pose `(x, y, theta)` using an **action server**, without obstacle avoidance.
-Both the **user interface (action client)** and the **navigation logic (action server)** are implemented as **components and executed in the same process** using **manual composition (no launch file)**.
+![ROS 2](https://img.shields.io/badge/ROS%202-Jazzy-22314E?logo=ros&logoColor=white)
+![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)
+![Build](https://img.shields.io/badge/build-ament__cmake-4C9A2A)
 
----
+A ROS 2 C++ navigation controller built around a custom action interface, composable nodes, and `tf2` pose tracking. The system accepts a target pose, drives a simulated mobile robot toward it, publishes continuous navigation feedback, and supports goal cancellation.
 
-## Features
+## Highlights
 
-- Send navigation goals `(x, y, theta)` from terminal
-- Cancel active goal
-- Continuous feedback from action server
-- Robot motion using `/cmd_vel`
-- Robot pose obtained using **tf2 transforms**
-- Implemented entirely in **C++**
-
----
+- Custom `NavigateToPose` action with goal, feedback, and result messages
+- Cancellable, asynchronous navigation goals
+- Robot pose tracking through the `odom â†’ base_link` transform
+- Velocity control through `/cmd_vel`
+- Position and final-orientation control
+- Configurable fixed and robot reference frames
+- Navigation server and terminal client implemented as ROS 2 components
+- Manual composition in a single multithreaded process
 
 ## System Architecture
+
+```mermaid
+flowchart LR
+    A["Terminal UI"] -->|"NavigateToPose goal"| B["Navigation action server"]
+    B -->|"/cmd_vel"| C["Gazebo robot"]
+    C -->|"/odom"| D["TF broadcaster"]
+    D -->|"odom â†’ base_link"| B
 ```
-User Input (terminal)
-   ↓
-UiClient (Action Client)
-   ↓
-NavServer (Action Server)
-   ↓
-/cmd_vel
-   ↓
-Robot (Gazebo)
-   ↓
-/odom → TF transform (odom → base_link)
-   ↓
-NavServer (feedback loop)
+
+The terminal component acts as an action client. It sends target poses to the navigation server, which retrieves the current robot pose from `tf2`, computes distance and heading errors, and publishes velocity commands. Both components run inside the same `MultiThreadedExecutor`.
+
+## Navigation Behavior
+
+For each accepted goal `(x, y, Î¸)`, the controller:
+
+1. Retrieves the current robot pose from the TF tree.
+2. Computes the distance and heading error to the target position.
+3. Rotates toward the target and advances when sufficiently aligned.
+4. Corrects the robot's final orientation after reaching the target position.
+5. Stops the robot and returns a successful result.
+
+The control loop runs at 20 Hz. A goal is considered reached when the robot is within `0.10 m` of the requested position and `0.05 rad` of the requested final orientation.
+
+## ROS 2 Interface
+
+### Action
+
+`NavigateToPose.action`
+
+| Section | Fields |
+| --- | --- |
+| Goal | `float64 x`, `float64 y`, `float64 theta` |
+| Result | `bool success`, `string message` |
+| Feedback | `current_x`, `current_y`, `current_theta`, `distance_remaining`, `heading_error` |
+
+### Topics
+
+| Topic | Message type | Purpose |
+| --- | --- | --- |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | Linear and angular velocity commands |
+| `/odom` | `nav_msgs/msg/Odometry` | Robot odometry used to broadcast its TF transform |
+
+### Frames and Parameters
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `fixed_frame` | `odom` | Fixed reference frame used for navigation |
+| `robot_frame` | `base_link` | Mobile robot reference frame |
+
+## Project Structure
+
+```text
+ros2-action-navigation/
+â”œâ”€â”€ rt2_nav_cpp/
+â”‚   â”œâ”€â”€ action/
+â”‚   â”‚   â””â”€â”€ NavigateToPose.action
+â”‚   â”œâ”€â”€ include/rt2_nav_cpp/
+â”‚   â”‚   â”œâ”€â”€ nav_server_component.hpp
+â”‚   â”‚   â””â”€â”€ ui_client_component.hpp
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ manual_container_main.cpp
+â”‚   â”‚   â”œâ”€â”€ nav_server_component.cpp
+â”‚   â”‚   â””â”€â”€ ui_client_component.cpp
+â”‚   â”œâ”€â”€ CMakeLists.txt
+â”‚   â””â”€â”€ package.xml
+â””â”€â”€ README.md
 ```
----
 
-## Package Structure
+## Requirements
+
+- Ubuntu 24.04
+- ROS 2 Jazzy
+- C++17 compiler
+- `colcon` and `rosdep`
+- [`bme_gazebo_sensors`](https://github.com/CarmineD8/bme_gazebo_sensors), branch `rt2`
+
+## Installation
+
+Create a ROS 2 workspace and clone the project together with the simulator package:
+
+```bash
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+
+git clone https://github.com/egjinaj/ros2-action-navigation.git
+git clone -b rt2 https://github.com/CarmineD8/bme_gazebo_sensors.git
 ```
-rt2_nav_cpp/
-├── action/
-│   └── NavigateToPose.action
-├── include/rt2_nav_cpp/
-│   ├── nav_server_component.hpp
-│   └── ui_client_component.hpp
-├── src/
-│   ├── nav_server_component.cpp
-│   ├── ui_client_component.cpp
-│   └── manual_container_main.cpp
-├── CMakeLists.txt
-└── package.xml
-```
----
 
-## Components
-
-### NavServerComponent 
-
-- Implements navigation logic
-- Uses **tf2** to get robot pose (`odom → base_link`)
-- Subscribes to `/odom` and broadcasts TF
-- Publishes velocity commands to `/cmd_vel`
-- Computes:
-  - distance error
-  - heading error
-- Controls robot until:
-  - goal is reached
-  - or goal is canceled
-
----
-
-### UiClient
-
-- Reads input from terminal
-- Sends goals to action server
-- Supports:
-  - goal input: `x y theta`
-  - cancel command: `cancel`
-- Displays:
-  - feedback
-  - result
-
----
-
-## How to Run
-
-### 1. Build workspace
+Install dependencies and build the workspace:
 
 ```bash
 cd ~/ros2_ws
-colcon build
 source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
+
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
 ```
 
-### 2. Start robot (Gazebo)
+## Usage
+
+### 1. Start the Gazebo simulation
+
 ```bash
 ros2 launch bme_gazebo_sensors spawn_robot.launch.py
 ```
 
-### 3. Run navigation system
+### 2. Start the navigation system
+
+Open another terminal:
+
 ```bash
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
 ros2 run rt2_nav_cpp manual_container
 ```
 
-### 4. Control robot (same terminal)
-Send a goal:
-```md
-2 2 0
+### 3. Send a target pose
+
+Enter the desired `x`, `y`, and `theta` values in the navigation terminal:
+
+```text
+2.0 2.0 0.0
 ```
-Cancel goal:
-```md
+
+Angles are expressed in radians.
+
+To cancel the active goal:
+
+```text
 cancel
 ```
 
-## Topics Used
-| Topic      | Type                | Description       |
-| ---------- | ------------------- | ----------------- |
-| `/cmd_vel` | geometry_msgs/Twist | velocity commands |
-| `/odom`    | nav_msgs/Odometry   | robot odometry    |
+## Verification
 
-## TF Frames
+Inspect the main runtime interfaces from separate sourced terminals:
 
-| Frame       | Description           |
-| ----------- | --------------------- |
-| `odom`      | fixed reference frame |
-| `base_link` | robot frame           |
-
-## Action Interface
-### NavigateToPose.action
-- Goal:
-```md
-float64 x
-float64 y
-float64 theta
-```
-- Feedback:
-```md
-float64 current_x
-float64 current_y
-float64 current_theta
-float64 distance_remaining
-float64 heading_error
-```
-- Result:
-```md
-bool success
-string message
-```
-
-## Debug / Verification
-
-- Check velocity commands:
 ```bash
+# Velocity commands
 ros2 topic echo /cmd_vel
-```
-- Check robot pose:
-```bash
+
+# Robot odometry
 ros2 topic echo /odom
-```
-- Check TF transform:
-```bash
+
+# Robot pose from TF
 ros2 run tf2_ros tf2_echo odom base_link
+
+# Available action servers
+ros2 action list
 ```
-## Notes
-- This implementation does NOT include obstacle avoidance, as required by the assignment.
-- The robot may collide if obstacles are present.
-- Control is based on geometric error (no path planning).
----
-### External Dependency
 
-Clone the robot package:
+## Scope
 
-```bash
-cd ~/ros2_ws/src
-git clone -b rt2 https://github.com/CarmineD8/bme_gazebo_sensors.git
-```
----
-## Requirements
-- Ubuntu 24.04 (WSL or native)
-- ROS2 Jazzy
-- bme_gazebo_sensors package
----
+This project focuses on ROS 2 actions, component composition, TF-based localization, and closed-loop pose control. It intentionally does not implement global path planning or obstacle avoidance, so it should be tested in an open simulation environment.
 
-## Author: Endri Gjinaj
+## Author
+
+**Endri Gjinaj**
