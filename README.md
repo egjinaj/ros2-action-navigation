@@ -72,19 +72,19 @@ The control loop runs at 20 Hz. A goal is considered reached when the robot is w
 
 ```text
 ros2-action-navigation/
-â”œâ”€â”€ rt2_nav_cpp/
-â”‚   â”œâ”€â”€ action/
-â”‚   â”‚   â””â”€â”€ NavigateToPose.action
-â”‚   â”œâ”€â”€ include/rt2_nav_cpp/
-â”‚   â”‚   â”œâ”€â”€ nav_server_component.hpp
-â”‚   â”‚   â””â”€â”€ ui_client_component.hpp
-â”‚   â”œâ”€â”€ src/
-â”‚   â”‚   â”œâ”€â”€ manual_container_main.cpp
-â”‚   â”‚   â”œâ”€â”€ nav_server_component.cpp
-â”‚   â”‚   â””â”€â”€ ui_client_component.cpp
-â”‚   â”œâ”€â”€ CMakeLists.txt
-â”‚   â””â”€â”€ package.xml
-â””â”€â”€ README.md
+├── rt2_nav_cpp/
+│   ├── action/
+│   │   └── NavigateToPose.action
+│   ├── include/rt2_nav_cpp/
+│   │   ├── nav_server_component.hpp
+│   │   └── ui_client_component.hpp
+│   ├── src/
+│   │   ├── manual_container_main.cpp
+│   │   ├── nav_server_component.cpp
+│   │   └── ui_client_component.cpp
+│   ├── CMakeLists.txt
+│   └── package.xml
+└── README.md
 ```
 
 ## Requirements
