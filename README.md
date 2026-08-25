@@ -11,7 +11,7 @@ A ROS 2 C++ navigation controller built around a custom action interface, compos
 
 - Custom `NavigateToPose` action with goal, feedback, and result messages
 - Cancellable, asynchronous navigation goals
-- Robot pose tracking through the `odom â†’ base_link` transform
+- Robot pose tracking through the `odom -> base_link` transform
 - Velocity control through `/cmd_vel`
 - Position and final-orientation control
 - Configurable fixed and robot reference frames
@@ -25,14 +25,14 @@ flowchart LR
     A["Terminal UI"] -->|"NavigateToPose goal"| B["Navigation action server"]
     B -->|"/cmd_vel"| C["Gazebo robot"]
     C -->|"/odom"| D["TF broadcaster"]
-    D -->|"odom â†’ base_link"| B
+    D -->|"odom -> base_link"| B
 ```
 
 The terminal component acts as an action client. It sends target poses to the navigation server, which retrieves the current robot pose from `tf2`, computes distance and heading errors, and publishes velocity commands. Both components run inside the same `MultiThreadedExecutor`.
 
 ## Navigation Behavior
 
-For each accepted goal `(x, y, Î¸)`, the controller:
+For each accepted goal `(x, y, theta)`, the controller:
 
 1. Retrieves the current robot pose from the TF tree.
 2. Computes the distance and heading error to the target position.
